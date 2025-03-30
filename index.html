@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Interactive 2D/3D shape visualization and creation tool"
+    />
+    <title>2D/3D Shape Creator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <div id="canvas2d" aria-label="2D canvas for shape drawing"></div>
+      <canvas id="canvas3d" aria-label="3D canvas for shape rendering"></canvas>
+      <div class="controls">
+        <button id="addCircle" class="control-btn">Add Circle</button>
+        <button id="addRect" class="control-btn">Add Rectangle</button>
+        <button
+          id="toggle"
+          aria-label="Toggle between 2D and 3D views"
+        ></button>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="main.js" defer></script>
+  </body>
+</html>
