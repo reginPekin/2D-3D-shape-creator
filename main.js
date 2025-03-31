@@ -81,6 +81,17 @@ function animateToThreeJS() {
   mode = "3D";
   canvas3d.style.display = "block";
 
+  // Store canvas2d dimensions before hiding it
+  const canvas2dWidth = canvas2d.clientWidth;
+  const canvas2dHeight = canvas2d.clientHeight;
+
+  // Sync canvas3d size and position with canvas2d
+  canvas3d.style.position = "absolute";
+  canvas3d.style.top = canvas2d.offsetTop + "px";
+  canvas3d.style.left = canvas2d.offsetLeft + "px";
+  canvas3d.style.width = canvas2dWidth + "px";
+  canvas3d.style.height = canvas2dHeight + "px";
+
   const shapesElements = document.querySelectorAll(".shape");
   shapes = Array.from(shapesElements).map((el) => ({
     x: parseInt(el.style.left),
@@ -90,16 +101,12 @@ function animateToThreeJS() {
     color: el.style.background,
     type: el.getAttribute("data-type"),
     element: el,
+    canvasWidth: canvas2dWidth, // Store canvas dimensions with each shape
+    canvasHeight: canvas2dHeight,
   }));
 
-  shapes.forEach((shape) => {
-    shape.element.style.transition = "all 1s cubic-bezier(0.4, 0, 0.2, 1)";
-    shape.element.style.transform = "translateZ(100px) rotateY(90deg)";
-    shape.element.style.opacity = "0";
-  });
-
   setTimeout(() => {
-    canvas2d.style.display = "none";
+    // canvas2d.style.display = "none";
     renderThreeJS();
     animating = false;
   }, 1000);
@@ -113,7 +120,7 @@ function animateToTwoD() {
   const shapesElements = document.querySelectorAll(".shape");
   shapesElements.forEach((el) => {
     el.style.opacity = "0";
-    el.style.transform = "translateZ(100px) rotateY(-90deg)";
+    // el.style.transform = "translateZ(100px) rotateY(-90deg)"
   });
 
   canvas3d.style.opacity = "0";
@@ -125,7 +132,7 @@ function animateToTwoD() {
 
     shapesElements.forEach((el) => {
       el.style.transition = "all 1s cubic-bezier(0.4, 0, 0.2, 1)";
-      el.style.transform = "translateZ(0) rotateY(0)";
+      // el.style.transform = "translateZ(0) rotateY(0)";
       el.style.opacity = "1";
     });
 
@@ -135,11 +142,13 @@ function animateToTwoD() {
 
 function renderThreeJS() {
   const scene = new THREE.Scene();
+
+  // Switch to perspective camera for better 3D view
   const camera = new THREE.PerspectiveCamera(
-    75,
-    canvas3d.clientWidth / canvas3d.clientHeight,
+    45,
+    shapes[0].canvasWidth / shapes[0].canvasHeight,
     0.1,
-    1000
+    2000
   );
 
   const renderer = new THREE.WebGLRenderer({
@@ -148,32 +157,32 @@ function renderThreeJS() {
     antialias: true,
   });
 
-  renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+  renderer.setSize(shapes[0].canvasWidth, shapes[0].canvasHeight, false);
   renderer.setClearColor(0x000000, 0);
   renderer.shadowMap.enabled = true;
 
   // Add ambient light for better visibility
-  const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambientLight);
 
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5, 5, 5);
+  const light = new THREE.DirectionalLight(0xffffff, 0.5);
+  light.position.set(0, 0, 10);
   light.castShadow = true;
   scene.add(light);
 
   const meshes = [];
+
   shapes.forEach((shape) => {
     let geometry;
-    const scale = shape.w / 60;
 
     if (shape.type === "circle") {
-      geometry = new THREE.SphereGeometry(0.5, 32, 32);
+      geometry = new THREE.SphereGeometry(shape.w / 2, 32, 32);
     } else {
-      // For rectangles, create a cube with proportional dimensions
-      const width = 1;
-      const height = shape.h / shape.w;
-      const depth = 1;
-      geometry = new THREE.BoxGeometry(width, height, depth);
+      geometry = new THREE.BoxGeometry(
+        shape.w,
+        shape.h,
+        Math.min(shape.w, shape.h)
+      );
     }
 
     const material = new THREE.MeshPhysicalMaterial({
@@ -181,49 +190,57 @@ function renderThreeJS() {
       roughness: 0.5,
       metalness: 0.1,
       transparent: true,
-      opacity: 0,
+      opacity: 1,
       side: THREE.DoubleSide,
     });
 
     const mesh = new THREE.Mesh(geometry, material);
 
-    // Calculate scale to match 2D size exactly
-    const scaleX = shape.w / 100;
-    const scaleY = shape.h / 100;
-    const scaleZ = (shape.w + shape.h) / 200; // Average of width and height for depth
-    mesh.scale.set(scaleX, scaleY, scaleZ);
-
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    // Adjust position to match 2D coordinates exactly
-    const x = (shape.x - canvas2d.clientWidth / 2) / 100;
-    const y = -(shape.y - canvas2d.clientHeight / 2) / 100;
+    // Position directly using pixel coordinates
+    const x = shape.x - shapes[0].canvasWidth / 2 + shape.w / 2;
+    const y = -(shape.y - shapes[0].canvasHeight / 2 + shape.h / 2);
     mesh.position.set(x, y, 0);
-    mesh.rotation.y = -Math.PI / 2;
 
     scene.add(mesh);
     meshes.push(mesh);
   });
 
-  // Adjust camera position to match new scale
-  camera.position.z = 5;
+  // Initial camera position (top view)
+  camera.position.set(0, 0, 500);
+  camera.lookAt(0, 0, 0);
 
   let startTime = null;
-  const duration = 1000;
+  const duration = 2000; // Increased duration for smoother animation
 
   function animate(timestamp) {
     if (!startTime) startTime = timestamp;
     const progress = Math.min((timestamp - startTime) / duration, 1);
-    const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
 
-    meshes.forEach((mesh, i) => {
-      mesh.rotation.y = (-Math.PI / 2) * (1 - easeProgress);
-      mesh.position.z = Math.sin(easeProgress * Math.PI) * 0.5; // Reduce z-movement
-      mesh.material.opacity = progress;
-    });
+    // First half of animation - shapes rising
+    if (progress < 0.5) {
+      const riseProgress = progress * 2; // Scale to 0-1 for first half
+      meshes.forEach((mesh) => {
+        mesh.position.z = Math.sin(riseProgress * Math.PI) * 50;
+      });
+      renderer.render(scene, camera);
+    }
+    // Second half - camera movement
+    else {
+      const cameraProgress = (progress - 0.5) * 2; // Scale to 0-1 for second half
 
-    renderer.render(scene, camera);
+      // Move camera in an arc
+      const angle = cameraProgress * Math.PI * 0.25; // 45 degrees rotation
+      const radius = 500; // Keep same distance
+      const height = 500 * (1 - cameraProgress * 0.3); // Gradually lower camera
+
+      camera.position.x = Math.sin(angle) * radius;
+      camera.position.z = Math.cos(angle) * radius;
+      camera.position.y = height;
+
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    }
 
     if (progress < 1) {
       requestAnimationFrame(animate);
